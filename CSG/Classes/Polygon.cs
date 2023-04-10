@@ -6,7 +6,7 @@ namespace Parabox.CSG
     /// <summary>
     /// Represents a polygon face with an arbitrary number of vertices.
     /// </summary>
-    sealed class Polygon
+    public struct Polygon
     {
         public List<Vertex> vertices;
         public Plane plane;

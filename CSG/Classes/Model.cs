@@ -1,14 +1,13 @@
 using System;
 using UnityEngine;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Parabox.CSG
 {
     /// <summary>
     /// Representation of a mesh in CSG terms. Contains methods for translating to and from UnityEngine.Mesh.
     /// </summary>
-    public sealed class Model
+    public struct Model
     {
         List<Vertex> m_Vertices;
         List<Material> m_Materials;
@@ -34,7 +33,7 @@ namespace Parabox.CSG
 
         public Mesh mesh
         {
-            get { return (Mesh)this; }
+            get { return GetMesh();}
         }
 
         public Model(GameObject gameObject) :
@@ -55,7 +54,7 @@ namespace Parabox.CSG
             if(transform == null)
                 throw new ArgumentNullException("transform");
 
-            m_Vertices = VertexUtility.GetVertices(mesh).Select(x => transform.TransformVertex(x)).ToList();
+            m_Vertices = VertexUtility.GetVertices(mesh, transform.localToWorldMatrix);
             m_Materials = new List<Material>(materials);
             m_Indices = new List<List<int>>();
 
@@ -97,8 +96,16 @@ namespace Parabox.CSG
                 }
             }
 
-            m_Materials = submeshes.Keys.ToList();
-            m_Indices = submeshes.Values.ToList();
+            m_Materials = new List<Material>(submeshes.Keys.Count);
+            foreach (var mat in submeshes.Keys)
+            {
+                m_Materials.Add(mat);
+            }
+            m_Indices = new List<List<int>>(submeshes.Values.Count);
+            foreach (var indices in submeshes.Values)
+            {
+                m_Indices.Add(indices);
+            }
         }
 
         internal List<Polygon> ToPolygons()
@@ -125,17 +132,17 @@ namespace Parabox.CSG
             return list;
         }
 
-        public static explicit operator Mesh(Model model)
+        public Mesh GetMesh(Matrix4x4? worldToLocal = null)
         {
             var mesh = new Mesh();
-            VertexUtility.SetMesh(mesh, model.m_Vertices);
-            mesh.subMeshCount = model.m_Indices.Count;
+            VertexUtility.SetMesh(mesh, m_Vertices, worldToLocal);
+            mesh.subMeshCount = m_Indices.Count;
             for (int i = 0, c = mesh.subMeshCount; i < c; i++)
             {
 #if UNITY_2019_3_OR_NEWER
-                mesh.SetIndices(model.m_Indices[i], MeshTopology.Triangles, i);
+                mesh.SetIndices(m_Indices[i], MeshTopology.Triangles, i);
 #else
-                mesh.SetIndices(model.m_Indices[i].ToArray(), MeshTopology.Triangles, i);
+                mesh.SetIndices(m_Indices[i].ToArray(), MeshTopology.Triangles, i);
 #endif
             }
 

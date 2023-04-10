@@ -31,9 +31,10 @@ namespace Parabox.CSG
             out Vector4[] tangent,
             out Vector2[] uv2,
             out List<Vector4> uv3,
-            out List<Vector4> uv4)
+            out List<Vector4> uv4,
+            Matrix4x4? worldToLocal = null)
         {
-            GetArrays(vertices, out position, out color, out uv0, out normal, out tangent, out uv2, out uv3, out uv4, VertexAttributes.All);
+            GetArrays(vertices, out position, out color, out uv0, out normal, out tangent, out uv2, out uv3, out uv4, VertexAttributes.All, worldToLocal);
         }
 
         /// <summary>
@@ -64,7 +65,8 @@ namespace Parabox.CSG
             out Vector2[] uv2,
             out List<Vector4> uv3,
             out List<Vector4> uv4,
-            VertexAttributes attributes)
+            VertexAttributes attributes, 
+            Matrix4x4? worldToLocal = null)
         {
             if (vertices == null)
                 throw new ArgumentNullException("vertices");
@@ -93,15 +95,15 @@ namespace Parabox.CSG
             for (int i = 0; i < vc; i++)
             {
                 if (hasPosition)
-                    position[i] = vertices[i].position;
+                    position[i] = worldToLocal.HasValue ? worldToLocal.Value.MultiplyPoint(vertices[i].position) : vertices[i].position;
                 if (hasColor)
                     color[i] = vertices[i].color;
                 if (hasUv0)
                     uv0[i] = vertices[i].uv0;
                 if (hasNormal)
-                    normal[i] = vertices[i].normal;
+                    normal[i] = worldToLocal.HasValue ? worldToLocal.Value.MultiplyVector(vertices[i].normal) : vertices[i].normal;
                 if (hasTangent)
-                    tangent[i] = vertices[i].tangent;
+                    tangent[i] = worldToLocal.HasValue ? worldToLocal.Value.rotation * vertices[i].tangent : vertices[i].tangent;
                 if (hasUv2)
                     uv2[i] = vertices[i].uv2;
                 if (hasUv3)
@@ -111,13 +113,12 @@ namespace Parabox.CSG
             }
         }
 
-        public static Vertex[] GetVertices(this Mesh mesh)
+        public static List<Vertex> GetVertices(this Mesh mesh, Matrix4x4? localToWorld = null)
         {
             if (mesh == null)
                 return null;
 
             int vertexCount = mesh.vertexCount;
-            Vertex[] v = new Vertex[vertexCount];
 
             Vector3[] positions = mesh.vertices;
             Color[] colors = mesh.colors;
@@ -139,33 +140,36 @@ namespace Parabox.CSG
             bool _hasUv3 = uv3s.Count == vertexCount;
             bool _hasUv4 = uv4s.Count == vertexCount;
 
+            List<Vertex> v = new List<Vertex>(vertexCount);
             for (int i = 0; i < vertexCount; i++)
             {
-                v[i] = new Vertex();
+                var vn = new Vertex();
 
                 if (_hasPositions)
-                    v[i].position = positions[i];
+                    vn.position = localToWorld.HasValue ? localToWorld.Value.MultiplyPoint(positions[i]) : positions[i];
 
                 if (_hasColors)
-                    v[i].color = colors[i];
+                    vn.color = colors[i];
 
                 if (_hasNormals)
-                    v[i].normal = normals[i];
+                    vn.normal = localToWorld.HasValue ? localToWorld.Value.MultiplyVector(normals[i]) : normals[i];
 
                 if (_hasTangents)
-                    v[i].tangent = tangents[i];
+                    vn.tangent = localToWorld.HasValue ? localToWorld.Value.rotation * tangents[i] : tangents[i];
 
                 if (_hasUv0)
-                    v[i].uv0 = uv0s[i];
+                    vn.uv0 = uv0s[i];
 
                 if (_hasUv2)
-                    v[i].uv2 = uv2s[i];
+                    vn.uv2 = uv2s[i];
 
                 if (_hasUv3)
-                    v[i].uv3 = uv3s[i];
+                    vn.uv3 = uv3s[i];
 
                 if (_hasUv4)
-                    v[i].uv4 = uv4s[i];
+                    vn.uv4 = uv4s[i];
+
+                v.Add(vn);
             }
 
             return v;
@@ -176,7 +180,7 @@ namespace Parabox.CSG
         /// </summary>
         /// <param name="mesh">The target mesh.</param>
         /// <param name="vertices">The vertices to replace the mesh attributes with.</param>
-        public static void SetMesh(Mesh mesh, IList<Vertex> vertices)
+        public static void SetMesh(Mesh mesh, IList<Vertex> vertices, Matrix4x4? worldToLocal = null)
         {
             if (mesh == null)
                 throw new ArgumentNullException("mesh");
@@ -200,7 +204,8 @@ namespace Parabox.CSG
                 out tangents,
                 out uv2s,
                 out uv3s,
-                out uv4s);
+                out uv4s,
+                worldToLocal);
 
             mesh.Clear();
 
@@ -283,43 +288,6 @@ namespace Parabox.CSG
                 v.uv4 = x.uv4;
             else if (y.hasUV4)
                 v.uv4 = y.uv4;
-
-            return v;
-        }
-
-        /// <summary>
-        /// Transform a vertex into world space.
-        /// </summary>
-        /// <param name="transform">The transform to apply.</param>
-        /// <param name="vertex">A model space vertex.</param>
-        /// <returns>A new vertex in world coordinate space.</returns>
-        public static Vertex TransformVertex(this Transform transform, Vertex vertex)
-        {
-            var v = new Vertex();
-
-            if (vertex.HasArrays(VertexAttributes.Position))
-                v.position = transform.TransformPoint(vertex.position);
-
-            if (vertex.HasArrays(VertexAttributes.Color))
-                v.color = vertex.color;
-
-            if (vertex.HasArrays(VertexAttributes.Normal))
-                v.normal = transform.TransformDirection(vertex.normal);
-
-            if (vertex.HasArrays(VertexAttributes.Tangent))
-                v.tangent = transform.rotation * vertex.tangent;
-
-            if (vertex.HasArrays(VertexAttributes.Texture0))
-                v.uv0 = vertex.uv0;
-
-            if (vertex.HasArrays(VertexAttributes.Texture1))
-                v.uv2 = vertex.uv2;
-
-            if (vertex.HasArrays(VertexAttributes.Texture2))
-                v.uv3 = vertex.uv3;
-
-            if (vertex.HasArrays(VertexAttributes.Texture3))
-                v.uv4 = vertex.uv4;
 
             return v;
         }

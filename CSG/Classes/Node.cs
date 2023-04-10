@@ -98,7 +98,7 @@ namespace Parabox.CSG
                 if (currentList.Count < 1)
                     continue;
 
-                bool newNode = currentNode.plane == null || !currentNode.plane.Valid();
+                bool newNode = !currentNode.plane.Valid();
 
                 if (newNode)
                 {

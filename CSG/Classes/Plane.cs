@@ -7,7 +7,7 @@ namespace Parabox.CSG
     /// Represents a plane in 3d space.
     /// <remarks>Does not include position.</remarks>
     /// </summary>
-    sealed class Plane
+    public struct Plane
     {
         public Vector3 normal;
         public float w;
@@ -21,10 +21,10 @@ namespace Parabox.CSG
             Spanning    = 3         /// 3 is Front | Back - not a separate entry
         };
 
-        public Plane()
+        public Plane(Vector3? normal = null, float w = 0f)
         {
-            normal = Vector3.zero;
-            w = 0f;
+            this.normal = normal ?? Vector3.zero;
+            this.w = w;
         }
 
         public Plane(Vector3 a, Vector3 b, Vector3 c)

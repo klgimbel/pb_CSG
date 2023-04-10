@@ -58,7 +58,7 @@ namespace Parabox.CSG
                 case BooleanOp.Subtraction:
                     return Subtract(lhs, rhs);
                 default:
-                    return null;
+                    return default;
             }
         }
 
